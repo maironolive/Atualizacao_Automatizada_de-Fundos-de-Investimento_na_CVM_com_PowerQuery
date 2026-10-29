@@ -1,0 +1,130 @@
+let
+    // Gera as competências mensais de janeiro a dezembro de 2026.
+    Competencias =
+        List.Transform(
+            {1..12},
+            each
+                Text.PadStart(
+                    Text.From(_),
+                    2,
+                    "0"
+                ) & "/2026"
+        ),
+
+    // Executa a função para cada competência; ignora erros.
+    Dados =
+        List.Transform(
+            Competencias,
+            each try fxVinci(_) otherwise null
+        ),
+
+    // Remove os resultados nulos.
+    Validos =
+        List.RemoveNulls(Dados),
+
+    // Consolida os resultados em uma única tabela.
+    Consolidado =
+        Table.Combine(Validos),
+
+    // Mantém apenas as linhas com quota preenchida.
+    #"Linhas Filtradas" =
+        Table.SelectRows(
+            Consolidado,
+            each [Quota] <> ""
+        ),
+
+    // Agrupa os registros por competência.
+    #"Linhas Agrupadas" =
+        Table.Group(
+            #"Linhas Filtradas",
+            {"Competencia"},
+            {
+                {
+                    "Tabela",
+                    each _,
+                    type table [
+                        Dia = nullable text,
+                        Quota = nullable text,
+                        Competencia = text
+                    ]
+                }
+            }
+        ),
+
+    // Seleciona o registro com o maior dia de cada competência.
+    #"Personalização Adicionada" =
+        Table.AddColumn(
+            #"Linhas Agrupadas",
+            "ValorFinal",
+            each Table.Max([Tabela], "Dia")
+        ),
+
+    // Mantém somente o registro selecionado.
+    #"Outras Colunas Removidas" =
+        Table.SelectColumns(
+            #"Personalização Adicionada",
+            {"ValorFinal"}
+        ),
+
+    // Expande os campos do registro selecionado.
+    #"ValorFinal Expandido" =
+        Table.ExpandRecordColumn(
+            #"Outras Colunas Removidas",
+            "ValorFinal",
+            {"Dia", "Quota", "Competencia"},
+            {"Dia", "Quota", "Competencia"}
+        ),
+
+    // Cria um identificador sequencial para cada mês.
+    #"Índice Adicionado" =
+        Table.AddIndexColumn(
+            #"ValorFinal Expandido",
+            "Id_Mes",
+            1,
+            1,
+            Int64.Type
+        ),
+
+    // Organiza as colunas na ordem desejada.
+    #"Colunas Reordenadas" =
+        Table.ReorderColumns(
+            #"Índice Adicionado",
+            {"Id_Mes", "Competencia", "Dia", "Quota"}
+        ),
+
+    // Identifica a origem dos dados.
+    #"Personalização Adicionada1" =
+        Table.AddColumn(
+            #"Colunas Reordenadas",
+            "Fundo",
+            each "Vinci"
+        ),
+
+    // Combina o dia e a competência para formar a data.
+    #"Coluna Mesclada Inserida" =
+        Table.AddColumn(
+            #"Personalização Adicionada1",
+            "DataUltimaAtualizacao",
+            each Text.Combine(
+                {[Dia], [Competencia]},
+                "/"
+            ),
+            type text
+        ),
+
+    // Define os tipos de dados das colunas.
+    #"Tipo Alterado" =
+        Table.TransformColumnTypes(
+            #"Coluna Mesclada Inserida",
+            {
+                {"Id_Mes", Int64.Type},
+                {"Competencia", type date},
+                {"Dia", type number},
+                {"Quota", type number},
+                {"Fundo", type text},
+                {"DataUltimaAtualizacao", type date}
+            }
+        )
+in
+    // Retorna a tabela final tipada.
+    #"Tipo Alterado"

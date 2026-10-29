@@ -1,0 +1,1 @@
+"https://cvmweb.cvm.gov.br/SWB/Sistemas/SCW/CPublica/InfDiario/CPublicaInfdiario.aspx?PK_PARTIC=290965&PK_SUBCLASSE=-1" meta [IsParameterQuery=true, Type="Text", IsParameterQueryRequired=true]

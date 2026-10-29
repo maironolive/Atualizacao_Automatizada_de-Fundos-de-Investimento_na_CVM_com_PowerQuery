@@ -1,0 +1,103 @@
+(Competencia as text) =>
+
+let
+
+    Url =
+        CaminhoVinci,
+
+    // ======================================================
+    // PRIMEIRO GET
+    // ======================================================
+    FonteInicial =
+        Web.Contents(Url),
+
+    HtmlInicial =
+        Text.FromBinary(FonteInicial, TextEncoding.Utf8),
+
+    // ======================================================
+    // CAMPOS ASP.NET
+    // ======================================================
+    ViewState =
+        Text.BetweenDelimiters(
+            HtmlInicial,
+            "id=""__VIEWSTATE"" value=""",
+            """"
+        ),
+
+    ViewStateGenerator =
+        Text.BetweenDelimiters(
+            HtmlInicial,
+            "id=""__VIEWSTATEGENERATOR"" value=""",
+            """"
+        ),
+
+    EventValidation =
+        Text.BetweenDelimiters(
+            HtmlInicial,
+            "id=""__EVENTVALIDATION"" value=""",
+            """"
+        ),
+
+    // ======================================================
+    // POSTBACK
+    // ======================================================
+    PostData =
+        [
+            __EVENTTARGET = "ddComptc",
+            __EVENTARGUMENT = "",
+            __VIEWSTATE = ViewState,
+            __VIEWSTATEGENERATOR = ViewStateGenerator,
+            __EVENTVALIDATION = EventValidation,
+            ddComptc = Competencia
+        ],
+
+    FontePost =
+        Web.Contents(
+            Url,
+            [
+                Headers = [
+                    #"Content-Type" =
+                        "application/x-www-form-urlencoded"
+                ],
+
+                Content =
+                    Text.ToBinary(
+                        Uri.BuildQueryString(PostData)
+                    )
+            ]
+        ),
+
+    HtmlPost =
+        Text.FromBinary(FontePost, TextEncoding.Utf8),
+
+    // ======================================================
+    // EXTRAIR TABELA
+    // ======================================================
+    Tabela =
+        Html.Table(
+            HtmlPost,
+            {
+                {"Dia", "table#dgDocDiario tr td:nth-child(1)"},
+                {"Quota", "table#dgDocDiario tr td:nth-child(2)"}
+            },
+            [RowSelector = "table#dgDocDiario tr"]
+        ),
+
+    #"Remover Cabeçalho" =
+        Table.Skip(Tabela, 1),
+
+    #"Remover Vazios" =
+        Table.SelectRows(
+            #"Remover Cabeçalho",
+            each [Dia] <> null and [Dia] <> ""
+        ),
+
+    #"Adicionar Competencia" =
+        Table.AddColumn(
+            #"Remover Vazios",
+            "Competencia",
+            each Competencia
+        )
+
+in
+    #"Adicionar Competencia"
